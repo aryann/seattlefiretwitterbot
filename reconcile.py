@@ -57,7 +57,8 @@ if __name__ == '__main__':
 
     logging.info('found %d incidents to tweet.', len(incidents_to_tweet))
     for incident in incidents_to_tweet:
-        status = (f"{incident['units']} dispatched to {incident['location']}."
+        status = (f"{incident['units']} dispatched to {incident['location']}, "
+                  '#Seattle.'
                   f"\n\nType: {incident['type']}"
                   f"\n\n{incident['map_link']}")
         logging.info("new tweet with length %d:\n\n%s\n\n\n",
@@ -65,4 +66,4 @@ if __name__ == '__main__':
 
         if not args.dry_run:
             api.PostUpdate(status)
-            time.sleep(15)
+            time.sleep(5)

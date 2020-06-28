@@ -144,7 +144,7 @@ def get_incidents(lines):
         elif state == _ParsingState.EXPECT_LOCATION:
             location = _process_location(_extract_cell_data(line))
             curr['location'] = location
-            map_query = urllib.parse.quote(location)
+            map_query = urllib.parse.quote(f'{location}, SEATTLE, WA')
             curr['map_link'] = (
                 f'https://www.google.com/maps/search/?api=1&query={map_query}')
             state = _ParsingState.EXPECT_TYPE
