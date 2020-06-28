@@ -16,5 +16,5 @@ CMD exec gunicorn \
   --threads=4 \
   --timeout=0 \
   --log-file=- \
+  --access-logfile=- \
   reconciler:app
-  

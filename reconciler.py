@@ -1,4 +1,3 @@
-import argparse
 import logging
 import os
 import sys
@@ -9,6 +8,9 @@ import requests
 import twitter
 
 import parser
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 _DATA_URL = ('http://www2.seattle.gov/fire/realtime911/'
@@ -61,7 +63,7 @@ def reconcile():
         logging.info("new tweet with length %d:\n\n%s\n\n\n",
                      len(status), status)
 
-        if not args.dry_run:
+        if not os.environ.get('DRY_RUN', False):
             _api.PostUpdate(status)
             time.sleep(1)
 
@@ -69,13 +71,5 @@ def reconcile():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--dry-run',
-                            default=False, action='store_true')
-    args = arg_parser.parse_args()
-    logging.info('flags: %s', args)
-
     app.run(debug=False, host='0.0.0.0',
             port=int(os.environ.get('PORT', 8080)))
