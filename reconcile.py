@@ -4,6 +4,7 @@ import os
 import sys
 import time
 
+import flask
 import requests
 import twitter
 
@@ -12,7 +13,7 @@ import parser
 
 _DATA_URL = ('http://www2.seattle.gov/fire/realtime911/'
              'getRecsForDatePub.asp?action=Today&incDate=&rad1=des')
-USER_ID = '1276990331880267777'
+_USER_ID = '1276990331880267777'
 
 
 def _fetch_dispatch_data():
@@ -22,28 +23,24 @@ def _fetch_dispatch_data():
 
 
 def _get_last_tweet_text(api):
-    timeline = api.GetUserTimeline(user_id=USER_ID, count=10)
+    timeline = api.GetUserTimeline(user_id=_USER_ID, count=10)
     if not timeline:
         raise ValueError()
     return timeline[0].text
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+_api = twitter.Api(consumer_key=os.environ['API_KEY'],
+                   consumer_secret=os.environ['API_KEY_SECRET'],
+                   access_token_key=os.environ['ACCESS_TOKEN'],
+                   access_token_secret=os.environ['ACCESS_TOKEN_SECRET'])
 
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('--dry-run',
-                            default=False, action='store_true')
-    args = arg_parser.parse_args()
-    logging.info('flags: %s', args)
+_app = flask.Flask(__name__)
 
-    api = twitter.Api(consumer_key=os.environ['API_KEY'],
-                      consumer_secret=os.environ['API_KEY_SECRET'],
-                      access_token_key=os.environ['ACCESS_TOKEN'],
-                      access_token_secret=os.environ['ACCESS_TOKEN_SECRET'])
 
+@_app.route('/', methods=['POST'])
+def reconcile():
     logging.info('getting last tweet...')
-    last_tweet = _get_last_tweet_text(api)
+    last_tweet = _get_last_tweet_text(_api)
     logging.info('last tweet was: %s', last_tweet)
 
     logging.info('getting latest incidents...')
@@ -65,5 +62,20 @@ if __name__ == '__main__':
                      len(status), status)
 
         if not args.dry_run:
-            api.PostUpdate(status)
-            time.sleep(5)
+            _api.PostUpdate(status)
+            time.sleep(1)
+
+    return 'ok\n'
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('--dry-run',
+                            default=False, action='store_true')
+    args = arg_parser.parse_args()
+    logging.info('flags: %s', args)
+
+    _app.run(debug=False, host='0.0.0.0',
+             port=int(os.environ.get('PORT', 8080)))
