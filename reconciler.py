@@ -34,10 +34,10 @@ _api = twitter.Api(consumer_key=os.environ['API_KEY'],
                    access_token_key=os.environ['ACCESS_TOKEN'],
                    access_token_secret=os.environ['ACCESS_TOKEN_SECRET'])
 
-_app = flask.Flask(__name__)
+app = flask.Flask(__name__)
 
 
-@_app.route('/', methods=['POST'])
+@app.route('/', methods=['POST'])
 def reconcile():
     logging.info('getting last tweet...')
     last_tweet = _get_last_tweet_text(_api)
@@ -77,5 +77,5 @@ if __name__ == '__main__':
     args = arg_parser.parse_args()
     logging.info('flags: %s', args)
 
-    _app.run(debug=False, host='0.0.0.0',
-             port=int(os.environ.get('PORT', 8080)))
+    app.run(debug=False, host='0.0.0.0',
+            port=int(os.environ.get('PORT', 8080)))
