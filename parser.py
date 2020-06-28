@@ -1,3 +1,4 @@
+import collections
 import enum
 import json
 import logging
@@ -7,8 +8,8 @@ import urllib.parse
 # Source: https://en.wikipedia.org/wiki/Seattle_Fire_Department
 #
 # TODO(aryann): Many of the unit types are missing from this list.
-UNIT_MAP = {
-    'A': 'Basic Life Support',
+_UNIT_MAP = {
+    'A': 'Basic Life',
     'AIR': 'Air Unit',
     'B': 'Battalion Chief',
     'CHAP': 'Chaplain Unit',
@@ -22,7 +23,7 @@ UNIT_MAP = {
     'HOSE': 'Hose/Foam Wagon',
     'ICS': 'Incident Command System',
     'L': 'Ladder',
-    'M': 'Advanced Life Support',
+    'M': 'Advanced Life',
     'MAR': 'Fire Marshall',
     'MARINE': 'Marine Unit',
     'R': 'Technical Rescue Unit',
@@ -31,8 +32,17 @@ UNIT_MAP = {
     'STAF': 'Support Unit',
 }
 
+_PRIORITY = [
+    'E',
+    'L',
+    'M',
+    'A',
+]
 
-class ParsingState(enum.Enum):
+_MAX_UNIT_CHARS = 100
+
+
+class _ParsingState(enum.Enum):
     OUTSIDE_INCIDENT = 1
     EXPECT_DATETIME = 2
     EXPECT_INCIDENT_ID = 3
@@ -42,7 +52,7 @@ class ParsingState(enum.Enum):
     EXPECT_TYPE = 7
 
 
-def extract_cell_data(line):
+def _extract_cell_data(line):
     first_idx = line.index('>')
     result = line[first_idx + 1:]
     last_idx = result.index('<')
@@ -50,77 +60,99 @@ def extract_cell_data(line):
     return result
 
 
-def process_location(location):
+def _process_location(location):
     return location.replace('/', 'and').upper()
 
 
-def get_unit_type(unit):
+def _split_unit(unit):
     for i, char in enumerate(unit):
         if char.isdigit():
-            return unit[:i]
-    return unit
+            return unit[:i], unit[i:]
+    raise ValueError(f'could not split unit: {unit}')
 
 
-def process_units(units_data):
-    units = []
+def _process_units(units_data):
+    units = collections.defaultdict(list)
     for unit in units_data.split():
-        unit_type = UNIT_MAP.get(get_unit_type(unit))
-        if not unit_type:
-            logging.warning(
-                'Encountered unknown unit type "%s"; data line: %s', unit, units_data)
-            continue
-        units.append(unit_type + ' ' + unit[1:])
+        unit_type, unit_number = _split_unit(unit)
+        units[unit_type].append(unit_number)
 
-    units.sort()
-    if not units:
-        return []
-    elif len(units) == 1:
-        return units[0]
-    elif len(units) == 2:
-        return f'{units[0]} and {units[1]}'
+    char_count = 0
+    combined_units = []
+    for unit_type in _PRIORITY:
+        unit_numbers = units.get(unit_type)
+        if not unit_numbers:
+            continue
+        unit_type_name = _UNIT_MAP[unit_type]
+        combined_units.append(
+            f'{unit_type_name} {"/".join(sorted(unit_numbers))}')
+        char_count += len(combined_units[-1])
+        del units[unit_type]
+
+    unaccounted_units = 0
+    for unit_type, unit_numbers in sorted(units.items()):
+        unit_type_name = _UNIT_MAP.get(unit_type)
+        if not unit_type_name:
+            logging.warning('encountered unknown unit type: %s', unit_type)
+            continue
+        text = f'{unit_type_name} {"/".join(sorted(unit_numbers))}'
+        if char_count + len(text) < _MAX_UNIT_CHARS:
+            combined_units.append(text)
+            char_count += len(text)
+        else:
+            unaccounted_units += len(unit_numbers)
+
+    if unaccounted_units:
+        combined_units.append(f'{unaccounted_units} other units')
+
+    if len(combined_units) == 1:
+        return combined_units[0]
+    elif len(combined_units) == 2:
+        return ' and '.join(combined_units)
     else:
-        units[-1] = f'and {units[-1]}'
-        return ', '.join(units)
+        combined_units[-1] = 'and ' + combined_units[-1]
+        return ', '.join(combined_units)
 
 
 def get_incidents(lines):
-    state = ParsingState.OUTSIDE_INCIDENT
+    state = _ParsingState.OUTSIDE_INCIDENT
     incidents = []
     curr = {}
 
     for line in lines:
-        if state == ParsingState.OUTSIDE_INCIDENT:
+        if state == _ParsingState.OUTSIDE_INCIDENT:
             if "onMouseOver='rowOn(row" in line:
                 curr = {}
-                state = ParsingState.EXPECT_DATETIME
+                state = _ParsingState.EXPECT_DATETIME
 
-        elif state == ParsingState.EXPECT_DATETIME:
-            curr['datatime'] = extract_cell_data(line)
-            state = ParsingState.EXPECT_INCIDENT_ID
+        elif state == _ParsingState.EXPECT_DATETIME:
+            curr['datatime'] = _extract_cell_data(line)
+            state = _ParsingState.EXPECT_INCIDENT_ID
 
-        elif state == ParsingState.EXPECT_INCIDENT_ID:
-            curr['incident_id'] = extract_cell_data(line)
-            state = ParsingState.EXPECT_LEVEL
+        elif state == _ParsingState.EXPECT_INCIDENT_ID:
+            curr['incident_id'] = _extract_cell_data(line)
+            state = _ParsingState.EXPECT_LEVEL
 
-        elif state == ParsingState.EXPECT_LEVEL:
-            curr['level'] = extract_cell_data(line)
-            state = ParsingState.EXPECT_UNITS
+        elif state == _ParsingState.EXPECT_LEVEL:
+            curr['level'] = _extract_cell_data(line)
+            state = _ParsingState.EXPECT_UNITS
 
-        elif state == ParsingState.EXPECT_UNITS:
-            curr['units'] = process_units(extract_cell_data(line))
-            state = ParsingState.EXPECT_LOCATION
+        elif state == _ParsingState.EXPECT_UNITS:
+            curr['units'] = _process_units(_extract_cell_data(line))
+            state = _ParsingState.EXPECT_LOCATION
 
-        elif state == ParsingState.EXPECT_LOCATION:
-            location = process_location(extract_cell_data(line))
+        elif state == _ParsingState.EXPECT_LOCATION:
+            location = _process_location(_extract_cell_data(line))
             curr['location'] = location
             map_query = urllib.parse.quote(location)
-            curr['map_link'] = f'https://www.google.com/maps/search/?api=1&query={map_query}'
-            state = ParsingState.EXPECT_TYPE
+            curr['map_link'] = (
+                f'https://www.google.com/maps/search/?api=1&query={map_query}')
+            state = _ParsingState.EXPECT_TYPE
 
-        elif state == ParsingState.EXPECT_TYPE:
-            curr['type'] = extract_cell_data(line)
+        elif state == _ParsingState.EXPECT_TYPE:
+            curr['type'] = _extract_cell_data(line)
             incidents.append(curr)
-            state = ParsingState.OUTSIDE_INCIDENT
+            state = _ParsingState.OUTSIDE_INCIDENT
 
         else:
             raise ValueError(f'Unexpected state: {state}')
