@@ -26,6 +26,7 @@ _UNIT_MAP = {
     'M': 'Advanced Life',
     'MAR': 'Fire Marshall',
     'MARINE': 'Marine Unit',
+    'PIO': 'Public Information Officer Unit',
     'R': 'Technical Rescue Unit',
     'REHAB': 'Rehabilitation',
     'SAFT': 'Safety Chief',
@@ -68,7 +69,7 @@ def _split_unit(unit):
     for i, char in enumerate(unit):
         if char.isdigit():
             return unit[:i], unit[i:]
-    raise ValueError(f'could not split unit: {unit}')
+    return unit, None
 
 
 def _process_units(units_data):
@@ -95,7 +96,8 @@ def _process_units(units_data):
         if not unit_type_name:
             logging.warning('encountered unknown unit type: %s', unit_type)
             continue
-        text = f'{unit_type_name} {"/".join(sorted(unit_numbers))}'
+        unit_numbers = [number for number in unit_numbers if number]
+        text = f'{unit_type_name} {"/".join(sorted(unit_numbers))}'.strip()
         if char_count + len(text) < _MAX_UNIT_CHARS:
             combined_units.append(text)
             char_count += len(text)
@@ -161,6 +163,6 @@ def get_incidents(lines):
 
 
 if __name__ == '__main__':
-    with open('testdata/20200627.html') as f:
+    with open('testdata/20200629.html') as f:
         incidents = get_incidents(f.readlines())
     print(json.dumps(incidents, indent=2))
