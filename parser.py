@@ -2,6 +2,7 @@ import collections
 import enum
 import json
 import logging
+import os
 import urllib.parse
 
 
@@ -41,6 +42,9 @@ _PRIORITY = [
 ]
 
 _MAX_UNIT_CHARS = 100
+
+_TEST_DATA_DIR = os.path.join(os.path.dirname(
+    os.path.realpath(__file__)), 'testdata')
 
 
 class _ParsingState(enum.Enum):
@@ -128,7 +132,7 @@ def get_incidents(lines):
                 state = _ParsingState.EXPECT_DATETIME
 
         elif state == _ParsingState.EXPECT_DATETIME:
-            curr['datatime'] = _extract_cell_data(line)
+            curr['datetime'] = _extract_cell_data(line)
             state = _ParsingState.EXPECT_INCIDENT_ID
 
         elif state == _ParsingState.EXPECT_INCIDENT_ID:
@@ -163,6 +167,8 @@ def get_incidents(lines):
 
 
 if __name__ == '__main__':
-    with open('testdata/20200629.html') as f:
-        incidents = get_incidents(f.readlines())
+    incidents = []
+    for test_file in reversed(sorted(os.listdir(_TEST_DATA_DIR))):
+        with open(os.path.join(_TEST_DATA_DIR, test_file)) as f:
+            incidents.extend(get_incidents(f.readlines()))
     print(json.dumps(incidents, indent=2))
