@@ -99,6 +99,7 @@ def _process_units(units_data):
         unit_type_name = _UNIT_MAP.get(unit_type)
         if not unit_type_name:
             logging.warning('encountered unknown unit type: %s', unit_type)
+            unaccounted_units += 1
             continue
         unit_numbers = [number for number in unit_numbers if number]
         text = f'{unit_type_name} {"/".join(sorted(unit_numbers))}'.strip()
@@ -109,7 +110,13 @@ def _process_units(units_data):
             unaccounted_units += len(unit_numbers)
 
     if unaccounted_units:
-        combined_units.append(f'{unaccounted_units} other units')
+        if combined_units:
+            text = f'{unaccounted_units} other unit'
+        else:
+            text = f'{unaccounted_units} unit'
+        if unaccounted_units > 1:
+            text += 's'
+        combined_units.append(text)
 
     if len(combined_units) == 1:
         return combined_units[0]
