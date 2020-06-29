@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+
+gcloud builds submit \
+  --tag=gcr.io/seattlefiretwitterbot/reconciler
+gcloud run deploy \
+  --image=gcr.io/seattlefiretwitterbot/reconciler \
+  --platform managed
