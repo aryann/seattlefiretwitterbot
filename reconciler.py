@@ -49,22 +49,27 @@ def reconcile():
     incidents = parser.get_incidents(_fetch_dispatch_data().splitlines())
     incidents_to_tweet = []
     for incident in incidents:
-        if incident['location'] in last_tweet:
+        if (incident['units'] in last_tweet and
+                incident['location'] in last_tweet):
             break
         incidents_to_tweet.append(incident)
     incidents_to_tweet.reverse()
 
-    logging.info('found %d incidents to tweet.', len(incidents_to_tweet))
+    logging.info('found %d incidents to tweet', len(incidents_to_tweet))
     for incident in incidents_to_tweet:
         status = (f"{incident['units']} dispatched to {incident['location']}, "
                   '#Seattle.'
                   f"\n\nType: {incident['type']}"
                   f"\n\n{incident['map_link']}")
-        logging.info("new tweet with length %d:\n\n%s\n\n\n",
+        logging.info("new tweet with length %d: <%s>",
                      len(status), status)
 
         if not os.environ.get('DRY_RUN', False):
-            _api.PostUpdate(status)
+            try:
+                _api.PostUpdate(status)
+                logging.info('posted tweet')
+            except twitter.error.TwitterError as e:
+                logging.error('error posting status: %s', e)
             time.sleep(1)
 
     return 'ok\n'
