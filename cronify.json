@@ -1,0 +1,11 @@
+{
+    "project-id": "seattlefiretwitterbot",
+    "region": "us-west1",
+    "functions": [
+	{
+	    "module": "reconciler",
+	    "function": "reconcile",
+	    "timespec": "* * * * *"
+	}
+    ]
+}

@@ -3,14 +3,10 @@ import os
 import sys
 import time
 
-import flask
 import requests
 import twitter
 
 import parser
-
-
-logging.basicConfig(level=logging.INFO)
 
 
 _DATA_URL = ('http://www2.seattle.gov/fire/realtime911/'
@@ -36,10 +32,7 @@ _api = twitter.Api(consumer_key=os.environ['API_KEY'],
                    access_token_key=os.environ['ACCESS_TOKEN'],
                    access_token_secret=os.environ['ACCESS_TOKEN_SECRET'])
 
-app = flask.Flask(__name__)
 
-
-@app.route('/', methods=['POST'])
 def reconcile():
     logging.info('getting last tweet...')
     last_tweet = _get_last_tweet_text(_api)
@@ -76,5 +69,5 @@ def reconcile():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0',
-            port=int(os.environ.get('PORT', 8080)))
+    reconcile()
+
